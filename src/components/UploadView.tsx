@@ -26,7 +26,7 @@ export const UploadView: React.FC<UploadViewProps> = ({
   showAlert,
   showConfirm
 }) => {
-  const [uploadSubTab, setUploadSubTab] = useState<'daily' | 'period' | 'backup'>('daily');
+  const [uploadSubTab, setUploadSubTab] = useState<'period' | 'trip' | 'backup'>('period');
   const [dailyPreviewData, setDailyPreviewData] = useState<ParsedCSVRow[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
@@ -41,9 +41,26 @@ export const UploadView: React.FC<UploadViewProps> = ({
     });
   };
 
+  const findStaffByCleanName = (rawName: string) => {
+    if (!rawName) return null;
+    const cleaned = rawName
+      .replace(/^(성명|신청자|근무자)\s*[:：]?\s*/, '')
+      .split(/[\r\n(（/]/)[0]
+      .replace(/\s+/g, '')
+      .trim();
+    if (!cleaned) return null;
+    return staff.find(s => s.name.replace(/\s+/g, '').trim() === cleaned) || null;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showAlert('CSV 파일(.csv)만 업로드 가능합니다.');
+      if (e.target) e.target.value = '';
+      return;
+    }
 
     setIsSyncing(true);
     setSyncMessage('파일 로드 중...');
@@ -74,67 +91,48 @@ export const UploadView: React.FC<UploadViewProps> = ({
 
         const headers = parseCSVLine(lines[0]).map(h => h.replace(/\s/g, ''));
 
-        const isDaily = headers.some(h => h.includes('근무상황'));
-        const isPeriod = headers.some(h => h.includes('종별'));
+        const isPeriod = headers.some(h => h.includes('종별') || h.includes('근무상황'));
+        const isTrip = headers.some(h => h.includes('출장종류') || h.includes('출장지') || h.includes('출장목적') || h.includes('출장기간'));
 
-        if ((uploadSubTab === 'daily' && !isDaily) || (uploadSubTab === 'period' && !isPeriod)) {
+        if ((uploadSubTab === 'period' && !isPeriod) ||
+            (uploadSubTab === 'trip' && !isTrip)) {
           showAlert('선택한 탭과 파일 형식이 일치하지 않습니다.');
           setIsSyncing(false);
           return;
         }
 
-        const approvalIdx = headers.findIndex(h => h.includes('승인') || h.includes('결재') || h.includes('상태'));
+        const approvalIdx = headers.findIndex(h => h.includes('결재') || h.includes('승인'));
         const attachIdx = headers.findIndex(h => h.includes('첨부'));
 
         const parsed: ParsedCSVRow[] = [];
 
-        if (uploadSubTab === 'daily') {
-          lines.slice(1).forEach(line => {
-            const cur = parseCSVLine(line);
-            const obj: Record<string, string> = {};
-            headers.forEach((h, idx) => obj[h] = cur[idx] || '');
-
-            const appStatus = approvalIdx !== -1 ? (cur[approvalIdx] || '') : '완결';
-
-            if (obj['성명'] && obj['근무상황'] !== '정상근무' && appStatus.includes('완결')) {
-              const name = obj['성명'].trim();
-              const existingStaff = staff.find(s => s.name === name);
-              const pos = existingStaff ? existingStaff.position : obj['직급/직위/직종'];
-              const dept = existingStaff ? existingStaff.department : obj['부서'];
-
-              const attachVal = attachIdx !== -1 ? (cur[attachIdx] || '') : '';
-              const hasAttachment = String(attachVal).includes('확인');
-
-              parsed.push({
-                name,
-                status: obj['근무상황'],
-                period: obj['기간'],
-                reason: obj['사유'] || '-',
-                department: dept,
-                position: pos,
-                hasAttachment
-              });
-            }
-          });
-        } else {
+        if (uploadSubTab === 'period') {
           const nIdx = headers.findIndex(h => h.includes('성명'));
           const pIdx = headers.findIndex(h => h.includes('기간'));
-          const tIdx = headers.findIndex(h => h.includes('종별'));
+          const tIdx = headers.findIndex(h => h.includes('종별') || h.includes('근무상황'));
           const rIdx = headers.findIndex(h => h.includes('사유'));
-          const dIdx = headers.findIndex(h => h.includes('부서명'));
-          const posIdx = headers.findIndex(h => h.includes('직급'));
+          const dIdx = headers.findIndex(h => h.includes('부서'));
+          const posIdx = headers.findIndex(h => h.includes('직급') || h.includes('직위') || h.includes('직종'));
 
           lines.slice(1).forEach(line => {
             const cur = parseCSVLine(line);
             const rawN = cur[nIdx] || '';
-            const name = rawN.split(/[\r\n(]/)[0].trim();
+            if (!rawN.trim()) return;
+
+            const existingStaff = findStaffByCleanName(rawN);
+            const cleanNameOnly = rawN
+              .replace(/^(성명|신청자|근무자)\s*[:：]?\s*/, '')
+              .split(/[\r\n(（/]/)[0]
+              .trim();
+
+            const name = existingStaff ? existingStaff.name : cleanNameOnly;
             const status = cur[tIdx] || '';
             const appStatus = approvalIdx !== -1 ? (cur[approvalIdx] || '') : '완결';
 
-            if (name && status && !status.includes('정상') && appStatus.includes('완결')) {
-              const existingStaff = staff.find(s => s.name === name);
-              const pos = existingStaff ? existingStaff.position : (cur[posIdx] || '-');
-              const dept = existingStaff ? existingStaff.department : (cur[dIdx] || departments[0] || '-');
+            if (name && status && !status.includes('정상') && appStatus.includes('완결') && !appStatus.includes('취소')) {
+              const pos = existingStaff ? existingStaff.position : (cur[posIdx] || '교사');
+              const deptRaw = (dIdx !== -1 && cur[dIdx]) ? cur[dIdx].trim() : '';
+              const dept = existingStaff ? existingStaff.department : ((deptRaw && deptRaw !== '-') ? deptRaw : (departments[0] || '-'));
 
               const attachVal = attachIdx !== -1 ? (cur[attachIdx] || '') : '';
               const hasAttachment = String(attachVal).includes('확인');
@@ -150,6 +148,81 @@ export const UploadView: React.FC<UploadViewProps> = ({
               });
             }
           });
+        } else if (uploadSubTab === 'trip') {
+          const approvalTripIdx = headers.findIndex(h => h.includes('결재상태') || h.includes('결재') || h.includes('상태'));
+          const deleteIdx = headers.findIndex(h => h.includes('삭제'));
+          const applicantIdx = headers.findIndex(h => h.includes('신청자'));
+          const membersIdx = headers.findIndex(h => h.includes('출장인원'));
+          const tripTypeIdx = headers.findIndex(h => h.includes('출장종류'));
+          const tripPlaceIdx = headers.findIndex(h => h.includes('출장지'));
+          const tripPurposeIdx = headers.findIndex(h => h.includes('출장목적') || h.includes('목적'));
+          const tripPeriodIdx = headers.findIndex(h => h.includes('출장기간') || h.includes('기간'));
+          const tripDurationIdx = headers.findIndex(h => h.includes('일수'));
+          const deptIdx = headers.findIndex(h => h.includes('신청당시부서') || h.includes('부서'));
+
+          lines.slice(1).forEach(line => {
+            const cur = parseCSVLine(line);
+            if (!cur.length || cur.every(c => !c.trim())) return;
+
+            const appStatus = approvalTripIdx !== -1 ? (cur[approvalTripIdx] || '') : '완결';
+            const delStatus = deleteIdx !== -1 ? (cur[deleteIdx] || '') : '미삭제';
+
+            // Filter: Only include rows with 결재상태 '완결' (excluding 취소) and not deleted
+            const isCompleted = appStatus.includes('완결') && !appStatus.includes('취소');
+            const isNotDeleted = delStatus === '' || delStatus.includes('미삭제') || !delStatus.includes('삭제');
+
+            if (isCompleted && isNotDeleted) {
+              const applicantRaw = applicantIdx !== -1 ? cur[applicantIdx] : '';
+              const membersRaw = membersIdx !== -1 ? cur[membersIdx] : '';
+
+              let primaryRawName = applicantRaw;
+              if (!primaryRawName && membersRaw) {
+                primaryRawName = membersRaw
+                  .replace(/외\s*\d*명?/g, '')
+                  .split(/[,;\n\r]/)[0];
+              }
+
+              if (!primaryRawName || !primaryRawName.trim()) return;
+
+              const existingStaff = findStaffByCleanName(primaryRawName);
+              const cleanNameOnly = primaryRawName
+                .replace(/^(성명|신청자|근무자)\s*[:：]?\s*/, '')
+                .split(/[\r\n(（/]/)[0]
+                .trim();
+
+              const name = existingStaff ? existingStaff.name : cleanNameOnly;
+              if (!name) return;
+
+              const tripType = tripTypeIdx !== -1 ? cur[tripTypeIdx] : '출장';
+              const tripPlace = tripPlaceIdx !== -1 ? cur[tripPlaceIdx] : '';
+              const tripPurpose = tripPurposeIdx !== -1 ? cur[tripPurposeIdx] : '';
+              const tripPeriod = tripPeriodIdx !== -1 ? cur[tripPeriodIdx] : '';
+              const tripDuration = tripDurationIdx !== -1 ? cur[tripDurationIdx] : '';
+              const deptRaw = (deptIdx !== -1 && cur[deptIdx]) ? cur[deptIdx].trim() : '';
+
+              const pos = existingStaff ? existingStaff.position : '교사';
+              const targetDept = existingStaff ? existingStaff.department : ((deptRaw && deptRaw !== '-') ? deptRaw : (departments[0] || '-'));
+
+              parsed.push({
+                name,
+                status: '출장',
+                period: tripPeriod,
+                reason: tripPurpose || '출장',
+                department: targetDept,
+                position: pos,
+                hasAttachment: false,
+                tripType,
+                tripPlace,
+                tripDuration
+              });
+            }
+          });
+        }
+
+        if (!parsed.length) {
+          showAlert('유효한 복무/출장 완결 항목을 찾지 못했습니다.');
+          setIsSyncing(false);
+          return;
         }
 
         setDailyPreviewData(parsed);
@@ -158,40 +231,67 @@ export const UploadView: React.FC<UploadViewProps> = ({
         setSyncMessage('분석 에러');
       } finally {
         setIsSyncing(false);
-        e.target.value = '';
+        if (e.target) e.target.value = '';
       }
     };
     reader.readAsText(file, 'utf-8');
   };
 
   const handleApplyUpdates = () => {
-    const existingNames = new Set(staff.map(s => s.name));
+    const existingNamesNormalized = new Set(
+      staff.map(s => s.name.replace(/\s+/g, '').trim())
+    );
     const newOnes: Staff[] = [];
+    const newDeptsToConfirm: string[] = [];
     let updatedDepts = [...departments];
 
     dailyPreviewData.forEach(p => {
-      if (!existingNames.has(p.name)) {
-        let targetDept = (p.department && String(p.department).trim() !== '' && p.department !== '-')
-          ? String(p.department).trim()
-          : updatedDepts[0];
+      const existingStaff = findStaffByCleanName(p.name);
+      const cleanName = existingStaff ? existingStaff.name : p.name.trim();
 
-        if (!updatedDepts.includes(targetDept)) {
-          updatedDepts.push(targetDept);
-        }
+      let targetDept = existingStaff ? existingStaff.department : ((p.department && String(p.department).trim() !== '' && p.department !== '-')
+        ? String(p.department).trim()
+        : updatedDepts[0]);
 
+      if (targetDept && !departments.includes(targetDept) && !newDeptsToConfirm.includes(targetDept)) {
+        newDeptsToConfirm.push(targetDept);
+      }
+
+      if (targetDept && !updatedDepts.includes(targetDept)) {
+        updatedDepts.push(targetDept);
+      }
+
+      const normalizedKey = cleanName.replace(/\s+/g, '').trim();
+
+      if (existingStaff) {
+        p.name = existingStaff.name;
+        p.position = existingStaff.position;
+        p.department = existingStaff.department;
+      } else if (!existingNamesNormalized.has(normalizedKey)) {
         newOnes.push({
           id: (Date.now() + Math.random()).toString(36),
-          name: p.name,
+          name: cleanName,
           position: normalizePosition(p.position),
           department: targetDept
         });
-        existingNames.add(p.name);
+        existingNamesNormalized.add(normalizedKey);
       }
     });
 
-    const apply = () => {
-      if (updatedDepts.length > departments.length) {
+    const apply = (addDepts: boolean, addNewStaff: boolean) => {
+      if (addDepts && updatedDepts.length > departments.length) {
         setDepartments(updatedDepts);
+      }
+
+      let updatedStaff = [...staff];
+      if (addNewStaff && newOnes.length > 0) {
+        updatedStaff = [...updatedStaff, ...newOnes];
+        updatedStaff.sort((a, b) => {
+          const wA = getPositionWeight(a.position), wB = getPositionWeight(b.position);
+          if (wA !== wB) return wA - wB;
+          return String(a.name).localeCompare(String(b.name), 'ko');
+        });
+        setStaff(updatedStaff);
       }
 
       const robustParse = (str: string) => {
@@ -212,19 +312,25 @@ export const UploadView: React.FC<UploadViewProps> = ({
 
       const newEvents: WorkEvent[] = dailyPreviewData.map((p, i) => {
         const { start, end } = parseRange(p.period);
-        const currentStaff = staff.find(s => s.name === p.name) || newOnes.find(s => s.name === p.name);
+        const currentStaff = updatedStaff.find(s => 
+          s.name.replace(/\s+/g, '').trim() === p.name.replace(/\s+/g, '').trim()
+        );
+        const name = currentStaff ? currentStaff.name : String(p.name).trim();
         const pos = currentStaff ? currentStaff.position : normalizePosition(p.position);
 
         return {
           id: Date.now() + i + Math.random(),
-          name: String(p.name),
+          name,
           position: String(pos),
           originalStatus: String(p.status),
           type: String(normalizeType(p.status)),
           start,
           end,
           details: String(p.reason),
-          hasAttachment: !!p.hasAttachment
+          hasAttachment: !!p.hasAttachment,
+          tripType: p.tripType,
+          tripPlace: p.tripPlace,
+          tripDuration: p.tripDuration
         };
       });
 
@@ -241,19 +347,23 @@ export const UploadView: React.FC<UploadViewProps> = ({
       setViewMode('calendar');
     };
 
-    if (newOnes.length > 0) {
-      showConfirm(`신규 근무자 ${newOnes.length}명을 명단에 추가하고 복무를 반영하시겠습니까?`, () => {
-        const updatedStaff = [...staff, ...newOnes];
-        updatedStaff.sort((a, b) => {
-          const wA = getPositionWeight(a.position), wB = getPositionWeight(b.position);
-          if (wA !== wB) return wA - wB;
-          return String(a.name).localeCompare(String(b.name), 'ko');
-        });
-        setStaff(updatedStaff);
-        apply();
-      });
+    if (newDeptsToConfirm.length > 0 && newOnes.length > 0) {
+      showConfirm(
+        `인사 설정에 등록되지 않은 부서 [${newDeptsToConfirm.join(', ')}] 및 신규 근무자 ${newOnes.length}명이 발견되었습니다.\n부서 및 신규 근무자를 인사 설정에 추가하고 복무를 반영하시겠습니까?`,
+        () => apply(true, true)
+      );
+    } else if (newDeptsToConfirm.length > 0) {
+      showConfirm(
+        `인사 설정의 부서 목록에 없는 부서 [${newDeptsToConfirm.join(', ')}]가 발견되었습니다.\n부서 목록에 추가하고 복무를 반영하시겠습니까?`,
+        () => apply(true, false)
+      );
+    } else if (newOnes.length > 0) {
+      showConfirm(
+        `신규 근무자 ${newOnes.length}명을 명단에 추가하고 복무를 반영하시겠습니까?`,
+        () => apply(false, true)
+      );
     } else {
-      apply();
+      apply(false, false);
     }
   };
 
@@ -265,7 +375,7 @@ export const UploadView: React.FC<UploadViewProps> = ({
     
     const safeIso = (d: any) => (d instanceof Date && !isNaN(d.getTime())) ? d.toISOString() : '';
     events.forEach(e => {
-      csvContent += `EVENT,${escapeCSV(e.id)},${escapeCSV(e.name)},${escapeCSV(e.title || '')},${escapeCSV(safeIso(e.start))},${escapeCSV(safeIso(e.end))},${escapeCSV(e.type)},${escapeCSV(e.originalStatus || '')},${escapeCSV(e.details || '')},${e.hasAttachment ? 'Y' : 'N'}\n`;
+      csvContent += `EVENT,${escapeCSV(e.id)},${escapeCSV(e.name)},${escapeCSV(e.title || '')},${escapeCSV(safeIso(e.start))},${escapeCSV(safeIso(e.end))},${escapeCSV(e.type)},${escapeCSV(e.originalStatus || '')},${escapeCSV(e.details || '')},${e.hasAttachment ? 'Y' : 'N'},${escapeCSV(e.tripType || '')},${escapeCSV(e.tripPlace || '')},${escapeCSV(e.tripDuration || '')}\n`;
     });
 
     const now = new Date();
@@ -347,7 +457,10 @@ export const UploadView: React.FC<UploadViewProps> = ({
               type: cols[6],
               originalStatus: cols[7],
               details: cols[8],
-              hasAttachment: cols[9] === 'Y'
+              hasAttachment: cols[9] === 'Y',
+              tripType: cols[10] || undefined,
+              tripPlace: cols[11] || undefined,
+              tripDuration: cols[12] || undefined
             });
           }
         });
@@ -393,20 +506,20 @@ export const UploadView: React.FC<UploadViewProps> = ({
         <div className="flex flex-col sm:flex-row justify-end gap-2.5 w-full xl:w-auto items-center">
           <div className="flex bg-slate-200/60 p-1 rounded-md shrink-0 w-max">
             <button
-              onClick={() => { setUploadSubTab('daily'); setDailyPreviewData([]); setSyncMessage(''); }}
-              className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold rounded transition-all ${
-                uploadSubTab === 'daily' ? 'bg-white shadow-2xs text-blue-600' : 'text-slate-600'
-              }`}
-            >
-              일일 현황
-            </button>
-            <button
               onClick={() => { setUploadSubTab('period'); setDailyPreviewData([]); setSyncMessage(''); }}
               className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold rounded transition-all ${
                 uploadSubTab === 'period' ? 'bg-white shadow-2xs text-blue-600' : 'text-slate-600'
               }`}
             >
               기간별 현황
+            </button>
+            <button
+              onClick={() => { setUploadSubTab('trip'); setDailyPreviewData([]); setSyncMessage(''); }}
+              className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold rounded transition-all ${
+                uploadSubTab === 'trip' ? 'bg-white shadow-2xs text-blue-600' : 'text-slate-600'
+              }`}
+            >
+              출장 현황
             </button>
             <button
               onClick={() => { setUploadSubTab('backup'); setDailyPreviewData([]); setSyncMessage(''); }}
@@ -433,14 +546,16 @@ export const UploadView: React.FC<UploadViewProps> = ({
           dailyPreviewData.length > 0 ? 'py-3 px-4' : 'py-6 sm:py-8 px-4'
         }`}>
           <p className="text-sm font-bold text-slate-800 mb-1 text-center">
-            {uploadSubTab === 'daily' ? '[일일근무상황조회] CSV 파일' : '[기간별복무조회] CSV 파일'}
+            {uploadSubTab === 'period'
+              ? '[기간별복무조회] CSV 파일'
+              : '[출장상황조회] CSV 파일'}
           </p>
 
           <div className="text-xs font-medium text-slate-600 mb-3 text-center px-3 py-1.5 bg-white rounded border border-blue-100 shadow-2xs max-w-2xl">
-            {uploadSubTab === 'daily' ? (
-              <p><i className="fa-solid fa-circle-info mr-1 text-blue-500"></i>나이스 &gt; 기본 메뉴 &gt; 복무 &gt; 일일근무상황조회 (일자 - 조회 - 엑셀내려받기: 부서일일근무상황목록.CSV)</p>
-            ) : (
+            {uploadSubTab === 'period' ? (
               <p><i className="fa-solid fa-circle-info mr-1 text-blue-500"></i>나이스 &gt; 교감 &gt; 근무상황관리 &gt; 근무상황관리 (기간 - 결재상태 완결 - 조회 - 엑셀내려받기: 근무상황목록.CSV)</p>
+            ) : (
+              <p><i className="fa-solid fa-circle-info mr-1 text-blue-500"></i>나이스 &gt; 복무 &gt; 출장 &gt; 출장상황조회 또는 근무상황관리 (결재상태 완결 - 엑셀내려받기: 출장목록.CSV)</p>
             )}
           </div>
 

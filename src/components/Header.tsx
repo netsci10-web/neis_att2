@@ -15,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({ viewMode, setViewMode, onOpenCre
     { id: 'list', icon: 'fa-list-check', label: '전체 목록' },
     { id: 'organization', icon: 'fa-sitemap', label: '기관 복무 현황' },
     { id: 'management', icon: 'fa-clipboard-user', label: '연간 복무 관리' },
+    { id: 'vacation', icon: 'fa-umbrella-beach', label: '방학중 복무 현황' },
     { id: 'upload', icon: 'fa-file-arrow-up', label: '복무 파일 관리' },
     { id: 'settings', icon: 'fa-sliders', label: '인사 설정' }
   ];

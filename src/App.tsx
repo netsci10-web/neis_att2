@@ -7,6 +7,7 @@ import { CalendarView } from './components/CalendarView';
 import { ListView } from './components/ListView';
 import { OrganizationView } from './components/OrganizationView';
 import { ManagementView } from './components/ManagementView';
+import { VacationView } from './components/VacationView';
 import { UploadView } from './components/UploadView';
 import { SettingsView } from './components/SettingsView';
 import { EventModal } from './components/EventModal';
@@ -188,6 +189,31 @@ export default function App() {
     const currentStaff = staff.find(s => s.name === event.name);
     const position = currentStaff ? currentStaff.position : (event.position || '-');
     const isSameDay = formatDate(event.start) === formatDate(event.end);
+    const isTrip = event.type === '출장' || (event.originalStatus && event.originalStatus.includes('출장'));
+
+    // Extract trip details from event fields or details string (for backwards compatibility)
+    let tripType = event.tripType || '';
+    let tripPlace = event.tripPlace || '';
+    let tripDuration = event.tripDuration || '';
+    let cleanDetails = event.details || '';
+
+    if (isTrip && cleanDetails.includes('[')) {
+      const match = cleanDetails.match(/^(.*?)\[(.*?)\]$/);
+      if (match) {
+        const mainPart = match[1].trim();
+        const infoPart = match[2];
+        infoPart.split('|').forEach(p => {
+          const s = p.trim();
+          if (s.startsWith('종류:')) tripType = tripType || s.replace('종류:', '').trim();
+          if (s.startsWith('출장지:')) tripPlace = tripPlace || s.replace('출장지:', '').trim();
+          if (s.startsWith('기간:')) tripDuration = tripDuration || s.replace('기간:', '').trim();
+        });
+        cleanDetails = mainPart || cleanDetails;
+      }
+    }
+
+    // Integrate period into 일수/기간
+    const displayDuration = tripDuration || durationStr;
 
     const detailNode = (
       <div className="flex flex-col w-full text-center px-1">
@@ -232,13 +258,26 @@ export default function App() {
 
           <div className="flex items-center gap-4">
             <span className="w-20 shrink-0 text-sm font-bold text-slate-400 text-center">일수/기간</span>
-            <span className="text-[15px] font-bold text-slate-700">{durationStr}</span>
+            <span className="text-[15px] font-bold text-slate-700">{displayDuration}</span>
           </div>
 
           <div className="flex items-start gap-4">
             <span className="w-20 shrink-0 text-sm font-bold text-slate-400 mt-0.5 text-center">사유/용무</span>
-            <span className="text-[15px] font-bold text-slate-700 break-all leading-snug">{event.details || '-'}</span>
+            <span className="text-[15px] font-bold text-slate-700 break-all leading-snug">{cleanDetails || '-'}</span>
           </div>
+
+          {isTrip && (
+            <>
+              <div className="flex items-center gap-4">
+                <span className="w-20 shrink-0 text-sm font-bold text-slate-400 text-center">출장종류</span>
+                <span className="text-[15px] font-bold text-slate-700">{tripType || '출장'}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="w-20 shrink-0 text-sm font-bold text-slate-400 text-center">출장지</span>
+                <span className="text-[15px] font-bold text-slate-700">{tripPlace || '-'}</span>
+              </div>
+            </>
+          )}
 
           {needsAttachment(event.type, event.originalStatus, event.details) && (
             <div className="flex items-center gap-4">
@@ -361,6 +400,7 @@ export default function App() {
     list: '전체 복무 목록',
     organization: '기관 복무 현황',
     management: '연간 복무 통계/관리',
+    vacation: '방학중 복무 현황 (Matrix)',
     upload: '복무 파일 관리 (CSV)',
     settings: '인사 및 조직 설정'
   };
@@ -503,6 +543,24 @@ export default function App() {
                   onSelectEvent={handleSelectEvent}
                   onToggleAttachment={toggleAttachment}
                   showAlert={showAlert}
+                />
+              )}
+
+              {viewMode === 'vacation' && (
+                <VacationView
+                  staff={staff}
+                  events={events}
+                  departments={departments}
+                  onSelectEvent={handleSelectEvent}
+                  onSelectDateStaff={(dateStr, staffName) => {
+                    setNewEvent(prev => ({
+                      ...prev,
+                      name: staffName,
+                      date: dateStr,
+                      type: '41조'
+                    }));
+                    setIsModalOpen(true);
+                  }}
                 />
               )}
 

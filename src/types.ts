@@ -18,6 +18,9 @@ export interface WorkEvent {
   originalStatus?: string; // e.g. '연가', '병가', '모성보호시간', '가족돌봄휴가(무급)', '41조연수'
   details?: string;
   hasAttachment?: boolean;
+  tripType?: string;
+  tripPlace?: string;
+  tripDuration?: string;
 }
 
 export interface ParsedCSVRow {
@@ -28,6 +31,9 @@ export interface ParsedCSVRow {
   department?: string;
   position?: string;
   hasAttachment?: boolean;
+  tripType?: string;
+  tripPlace?: string;
+  tripDuration?: string;
 }
 
 export interface FilterState {
@@ -50,4 +56,4 @@ export interface GlobalConfirmState {
   onConfirm?: (() => void) | null;
 }
 
-export type ViewMode = 'calendar' | 'list' | 'organization' | 'management' | 'upload' | 'settings';
+export type ViewMode = 'calendar' | 'list' | 'organization' | 'management' | 'vacation' | 'upload' | 'settings';
