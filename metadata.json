@@ -1,0 +1,6 @@
+{
+  "name": "WorkSync Pro - 기관 복무관리",
+  "description": "초·중·고등학교 및 공공기관을 위한 나이스(NEIS) 연동 실시간 근무상황 및 연간 복무 관리 시스템",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
