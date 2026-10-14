@@ -144,15 +144,105 @@ export const VacationView: React.FC<VacationViewProps> = ({
     events: WorkEvent[];
   } | null>(null);
 
+  // Summer and Winter persisted ranges
+  const [summerStart, setSummerStart] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('vacation_summer_start');
+      if (saved) return saved;
+    } catch (e) {}
+    return `${currentYear}-07-20`;
+  });
+
+  const [summerEnd, setSummerEnd] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('vacation_summer_end');
+      if (saved) return saved;
+    } catch (e) {}
+    return `${currentYear}-08-21`;
+  });
+
+  const [winterStart, setWinterStart] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('vacation_winter_start');
+      if (saved) return saved;
+    } catch (e) {}
+    return `${currentYear + 1}-01-02`;
+  });
+
+  const [winterEnd, setWinterEnd] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('vacation_winter_end');
+      if (saved) return saved;
+    } catch (e) {}
+    return `${currentYear + 1}-02-28`;
+  });
+
+  // Modal for vacation period configuration
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
+  const [editSummerStart, setEditSummerStart] = useState(summerStart);
+  const [editSummerEnd, setEditSummerEnd] = useState(summerEnd);
+  const [editWinterStart, setEditWinterStart] = useState(winterStart);
+  const [editWinterEnd, setEditWinterEnd] = useState(winterEnd);
+
+  const handleOpenPeriodModal = () => {
+    setEditSummerStart(summerStart);
+    setEditSummerEnd(summerEnd);
+    setEditWinterStart(winterStart);
+    setEditWinterEnd(winterEnd);
+    setIsPeriodModalOpen(true);
+  };
+
+  const handleSavePeriodSettings = (applyWhich?: 'summer' | 'winter' | 'none') => {
+    setSummerStart(editSummerStart);
+    setSummerEnd(editSummerEnd);
+    setWinterStart(editWinterStart);
+    setWinterEnd(editWinterEnd);
+    try {
+      localStorage.setItem('vacation_summer_start', editSummerStart);
+      localStorage.setItem('vacation_summer_end', editSummerEnd);
+      localStorage.setItem('vacation_winter_start', editWinterStart);
+      localStorage.setItem('vacation_winter_end', editWinterEnd);
+    } catch (e) {}
+
+    if (applyWhich === 'summer') {
+      setStartDate(editSummerStart);
+      setEndDate(editSummerEnd);
+    } else if (applyWhich === 'winter') {
+      setStartDate(editWinterStart);
+      setEndDate(editWinterEnd);
+    }
+    setIsPeriodModalOpen(false);
+  };
+
+  const handleResetDefaultPeriods = () => {
+    const sS = `${currentYear}-07-20`;
+    const sE = `${currentYear}-08-21`;
+    const wS = `${currentYear + 1}-01-02`;
+    const wE = `${currentYear + 1}-02-28`;
+    setEditSummerStart(sS);
+    setEditSummerEnd(sE);
+    setEditWinterStart(wS);
+    setEditWinterEnd(wE);
+  };
+
+  const formatShortDate = (dStr: string) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3) {
+      return `${parseInt(parts[1], 10)}.${parts[2]}`;
+    }
+    return dStr;
+  };
+
   // Quick Preset Handlers
   const handlePresetSummer = () => {
-    setStartDate(`${currentYear}-07-20`);
-    setEndDate(`${currentYear}-08-21`);
+    setStartDate(summerStart);
+    setEndDate(summerEnd);
   };
 
   const handlePresetWinter = () => {
-    setStartDate(`${currentYear + 1}-01-02`);
-    setEndDate(`${currentYear + 1}-02-28`);
+    setStartDate(winterStart);
+    setEndDate(winterEnd);
   };
 
   // Generate array of Date objects between startDate and endDate
@@ -355,18 +445,6 @@ export const VacationView: React.FC<VacationViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
             <button
-              onClick={handlePresetSummer}
-              className="px-3 py-1.5 rounded-md border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold transition-all shadow-2xs"
-            >
-              <i className="fa-solid fa-sun mr-1 text-amber-600"></i>여름방학 (7.20~8.21)
-            </button>
-            <button
-              onClick={handlePresetWinter}
-              className="px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 text-xs font-bold transition-all shadow-2xs"
-            >
-              <i className="fa-solid fa-snowflake mr-1 text-blue-600"></i>겨울방학 (1.02~2.28)
-            </button>
-            <button
               onClick={handleExportCSV}
               className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5"
             >
@@ -377,6 +455,39 @@ export const VacationView: React.FC<VacationViewProps> = ({
               className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5"
             >
               <i className="fa-solid fa-print text-slate-600"></i>인쇄
+            </button>
+            <div className="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
+            <button
+              onClick={handlePresetSummer}
+              className={`px-3 py-1.5 rounded-md border text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 ${
+                startDate === summerStart && endDate === summerEnd
+                  ? 'border-amber-400 bg-amber-500 text-white shadow-xs'
+                  : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+              }`}
+              title="여름방학 기간으로 조회"
+            >
+              <i className={`fa-solid fa-sun ${startDate === summerStart && endDate === summerEnd ? 'text-white' : 'text-amber-600'}`}></i>
+              <span>여름방학 ({formatShortDate(summerStart)}~{formatShortDate(summerEnd)})</span>
+            </button>
+            <button
+              onClick={handlePresetWinter}
+              className={`px-3 py-1.5 rounded-md border text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 ${
+                startDate === winterStart && endDate === winterEnd
+                  ? 'border-blue-500 bg-blue-600 text-white shadow-xs'
+                  : 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100'
+              }`}
+              title="겨울방학 기간으로 조회"
+            >
+              <i className={`fa-solid fa-snowflake ${startDate === winterStart && endDate === winterEnd ? 'text-white' : 'text-blue-600'}`}></i>
+              <span>겨울방학 ({formatShortDate(winterStart)}~{formatShortDate(winterEnd)})</span>
+            </button>
+            <button
+              onClick={handleOpenPeriodModal}
+              className="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5"
+              title="여름방학 및 겨울방학 시작/종료일 설정"
+            >
+              <i className="fa-solid fa-sliders text-indigo-600"></i>
+              <span>방학 기간 설정</span>
             </button>
           </div>
         </div>
@@ -660,6 +771,130 @@ export const VacationView: React.FC<VacationViewProps> = ({
               >
                 닫기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Vacation Period Configuration Modal */}
+      {isPeriodModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200">
+                  <i className="fa-solid fa-calendar-days text-sm"></i>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    방학 기간 설정 (여름/겨울방학)
+                  </h4>
+                  <p className="text-[11px] text-slate-500">학교 학사일정에 맞춰 방학 기간을 변경하고 저장합니다.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPeriodModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+              >
+                <i className="fa-solid fa-xmark text-base"></i>
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Summer Vacation Card */}
+              <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
+                    <i className="fa-solid fa-sun text-amber-600"></i>
+                    여름방학 기간
+                  </span>
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                    설정값 저장됨
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={editSummerStart}
+                    onChange={e => setEditSummerStart(e.target.value)}
+                    className="flex-1 border border-amber-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-800 bg-white outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                  <span className="text-amber-800 font-bold">~</span>
+                  <input
+                    type="date"
+                    value={editSummerEnd}
+                    onChange={e => setEditSummerEnd(e.target.value)}
+                    className="flex-1 border border-amber-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-800 bg-white outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Winter Vacation Card */}
+              <div className="p-3.5 bg-blue-50/60 border border-blue-200/80 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-900 flex items-center gap-1.5 text-xs">
+                    <i className="fa-solid fa-snowflake text-blue-600"></i>
+                    겨울방학 기간
+                  </span>
+                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                    설정값 저장됨
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={editWinterStart}
+                    onChange={e => setEditWinterStart(e.target.value)}
+                    className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-800 bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-blue-800 font-bold">~</span>
+                  <input
+                    type="date"
+                    value={editWinterEnd}
+                    onChange={e => setEditWinterEnd(e.target.value)}
+                    className="flex-1 border border-blue-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-800 bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+              <button
+                type="button"
+                onClick={handleResetDefaultPeriods}
+                className="text-slate-500 hover:text-slate-700 font-semibold underline underline-offset-2"
+              >
+                기본값 복원
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPeriodModalOpen(false)}
+                  className="px-3 py-1.5 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSavePeriodSettings('summer')}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-2xs transition-colors"
+                >
+                  여름방학 적용
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSavePeriodSettings('winter')}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-2xs transition-colors"
+                >
+                  겨울방학 적용
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSavePeriodSettings('none')}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow-2xs transition-colors"
+                >
+                  저장
+                </button>
+              </div>
             </div>
           </div>
         </div>

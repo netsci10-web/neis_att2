@@ -1,6 +1,6 @@
 import React, { Component, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ViewMode, Staff, WorkEvent, FilterState, GlobalAlertState, GlobalConfirmState } from './types';
-import { DEFAULT_DEPARTMENTS, DEFAULT_STAFF, TYPE_COLORS } from './utils/constants';
+import { ViewMode, Staff, WorkEvent, FilterState, GlobalAlertState, GlobalConfirmState, NotificationSettings } from './types';
+import { DEFAULT_DEPARTMENTS, DEFAULT_STAFF, TYPE_COLORS, DEFAULT_NOTIFICATION_SETTINGS, playNotificationSound, sendBrowserNotification } from './utils/constants';
 import { formatDate, formatTime, getDurationString, needsAttachment } from './utils/dateUtils';
 import { Header } from './components/Header';
 import { CalendarView } from './components/CalendarView';
@@ -107,6 +107,25 @@ export default function App() {
     start: '',
     end: ''
   });
+
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => {
+    try {
+      const saved = localStorage.getItem('work_schedule_notification_settings');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_NOTIFICATION_SETTINGS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('work_schedule_notification_settings', JSON.stringify(notificationSettings));
+    } catch (e) {
+      // ignore
+    }
+  }, [notificationSettings]);
 
   // Organization view date & filter
   const [orgSelectedDate, setOrgSelectedDate] = useState<string>(formatDate(new Date()));
@@ -372,6 +391,65 @@ export default function App() {
       }
     });
 
+    // Check notifications based on settings
+    if (notificationSettings.enabled) {
+      const isTypeAlert = notificationSettings.workTypeAlerts.enabled && !!notificationSettings.workTypeAlerts.types[newEventObj.type];
+      const isMissingDoc = notificationSettings.missingDocumentAlert.enabled &&
+        notificationSettings.missingDocumentAlert.alertOnCreate &&
+        needsAttachment(newEventObj.type, newEventObj.originalStatus, newEventObj.details) &&
+        !newEventObj.hasAttachment;
+
+      if (isTypeAlert || isMissingDoc) {
+        if (notificationSettings.soundEnabled) {
+          playNotificationSound();
+        }
+
+        if (notificationSettings.browserNotification) {
+          const alertTitle = isMissingDoc ? `[증빙누락 주의] ${displayName} ${newEventObj.type}` : `[복무 등록 알림] ${displayName} ${newEventObj.type}`;
+          const alertBody = isMissingDoc
+            ? `${displayName}님의 ${newEventObj.originalStatus || newEventObj.type} 건에 필수 증빙 서류가 등록되지 않았습니다.`
+            : `${displayName} (${pos})님의 ${newEventObj.originalStatus || newEventObj.type} 일정이 등록되었습니다.`;
+          sendBrowserNotification(alertTitle, { body: alertBody });
+        }
+
+        if (isMissingDoc) {
+          showAlert(
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-rose-600 font-bold text-base">
+                <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                <span>증빙 서류 누락 알림</span>
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                <strong>{displayName}</strong> ({pos})님의 <strong>{newEventObj.originalStatus || newEventObj.type}</strong> 신청 건에 <span className="text-rose-600 font-bold">증빙서류(첨부파일)</span>가 누락되었습니다.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-900 leading-relaxed">
+                ⚠️ 공가 및 가족돌봄/경조사 특별휴가는 증빙 서류 제출이 필수입니다. 서류 제출 후 [연간 복무 관리]에서 증빙 제출 여부를 체크해 주세요.
+              </div>
+            </div>,
+            'left',
+            '증빙서류 확인 안내'
+          );
+        } else if (isTypeAlert) {
+          showAlert(
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-blue-600 font-bold text-base">
+                <i className="fa-solid fa-bell text-lg"></i>
+                <span>{newEventObj.type} 등록 알림</span>
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                <strong>{displayName}</strong> ({pos})님의 <strong>{newEventObj.originalStatus || newEventObj.type}</strong> 복무가 등록되었습니다.
+              </p>
+              <div className="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                일시: {formatDate(newEventObj.start)} {formatTime(newEventObj.start)} ~ {formatDate(newEventObj.end)} {formatTime(newEventObj.end)}
+              </div>
+            </div>,
+            'left',
+            '복무 등록 알림'
+          );
+        }
+      }
+    }
+
     setIsModalOpen(false);
     setNewEvent({
       id: null,
@@ -483,6 +561,14 @@ export default function App() {
               >
                 <i className="fa-solid fa-plus text-[10px]"></i>
                 <span>신청</span>
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="hidden sm:flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs transition-all active:scale-95 items-center gap-1.5"
+                title="현재 화면 인쇄"
+              >
+                <i className="fa-solid fa-print text-slate-500 text-xs"></i>
+                <span>인쇄</span>
               </button>
               <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
                 <div className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
@@ -624,6 +710,7 @@ export default function App() {
                   setViewMode={setViewMode}
                   showAlert={showAlert}
                   showConfirm={showConfirm}
+                  notificationSettings={notificationSettings}
                 />
               )}
 
@@ -633,8 +720,12 @@ export default function App() {
                   setDepartments={setDepartments}
                   staff={staff}
                   setStaff={setStaff}
+                  events={events}
+                  setEvents={setEvents}
                   showAlert={showAlert}
                   showConfirm={showConfirm}
+                  notificationSettings={notificationSettings}
+                  setNotificationSettings={setNotificationSettings}
                 />
               )}
             </div>

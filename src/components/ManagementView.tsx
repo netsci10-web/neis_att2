@@ -132,18 +132,28 @@ export const ManagementView: React.FC<ManagementViewProps> = ({
             <p className="text-xs text-slate-500">1월 1일 기준 연도별 사용 현황입니다. 이름을 클릭하면 상세 내역을 볼 수 있습니다.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-md border border-slate-200">
-          <label className="text-xs font-bold text-slate-600 px-1">연도 선택</label>
-          <select
-            value={mngYear}
-            onChange={e => setMngYear(Number(e.target.value))}
-            className="bg-white border border-slate-200 rounded px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-md border border-slate-200">
+            <label className="text-xs font-bold text-slate-600 px-1">연도 선택</label>
+            <select
+              value={mngYear}
+              onChange={e => setMngYear(Number(e.target.value))}
+              className="bg-white border border-slate-200 rounded px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+            >
+              {[...Array(10)].map((_, i) => {
+                const y = new Date().getFullYear() - 5 + i;
+                return <option key={y} value={y}>{y}년</option>;
+              })}
+            </select>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95"
+            title="연간 복무 관리 인쇄"
           >
-            {[...Array(10)].map((_, i) => {
-              const y = new Date().getFullYear() - 5 + i;
-              return <option key={y} value={y}>{y}년</option>;
-            })}
-          </select>
+            <i className="fa-solid fa-print text-slate-500 text-xs"></i>
+            <span>인쇄</span>
+          </button>
         </div>
       </div>
 

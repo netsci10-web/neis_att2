@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Staff, WorkEvent, ParsedCSVRow, ViewMode } from '../types';
-import { TYPE_COLORS, normalizePosition, normalizeType, getPositionWeight } from '../utils/constants';
-import { formatDate, parseCSVLine, escapeCSV } from '../utils/dateUtils';
+import { Staff, WorkEvent, ParsedCSVRow, ViewMode, NotificationSettings } from '../types';
+import { TYPE_COLORS, normalizePosition, normalizeType, getPositionWeight, playNotificationSound, sendBrowserNotification } from '../utils/constants';
+import { formatDate, parseCSVLine, escapeCSV, needsAttachment } from '../utils/dateUtils';
 
 interface UploadViewProps {
   staff: Staff[];
@@ -13,6 +13,7 @@ interface UploadViewProps {
   setViewMode: (mode: ViewMode) => void;
   showAlert: (message: React.ReactNode | string, align?: 'center' | 'left', title?: string | null) => void;
   showConfirm: (message: string, onConfirm: () => void) => void;
+  notificationSettings?: NotificationSettings;
 }
 
 export const UploadView: React.FC<UploadViewProps> = ({
@@ -24,7 +25,8 @@ export const UploadView: React.FC<UploadViewProps> = ({
   setEvents,
   setViewMode,
   showAlert,
-  showConfirm
+  showConfirm,
+  notificationSettings
 }) => {
   const [uploadSubTab, setUploadSubTab] = useState<'period' | 'trip' | 'backup'>('period');
   const [dailyPreviewData, setDailyPreviewData] = useState<ParsedCSVRow[]>([]);
@@ -351,6 +353,45 @@ export const UploadView: React.FC<UploadViewProps> = ({
         });
         return [...updated, ...newEvents];
       });
+
+      // Notification check on upload
+      if (notificationSettings?.enabled) {
+        if (notificationSettings.missingDocumentAlert.enabled && notificationSettings.missingDocumentAlert.alertOnUpload) {
+          const missing = newEvents.filter(e => needsAttachment(e.type, e.originalStatus, e.details) && !e.hasAttachment);
+          if (missing.length > 0) {
+            if (notificationSettings.soundEnabled) playNotificationSound();
+            if (notificationSettings.browserNotification) {
+              sendBrowserNotification('[WorkSync 알림] 증빙 서류 누락 건 안내', {
+                body: `업로드된 복무 중 증빙 서류 미제출 건이 ${missing.length}건 확인되었습니다.`
+              });
+            }
+            showAlert(
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-rose-600 font-bold text-base">
+                  <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                  <span>증빙 서류 누락 알림 ({missing.length}건)</span>
+                </div>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  나이스 파일에서 업로드된 복무 중 <strong className="text-rose-600 font-bold">증빙 서류(첨부파일)가 미제출된 건이 총 {missing.length}건</strong> 확인되었습니다.
+                </p>
+                <div className="max-h-40 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-3 divide-y divide-slate-200/60 text-xs">
+                  {missing.map((m, idx) => (
+                    <div key={idx} className="py-1.5 flex justify-between items-center px-1">
+                      <span className="font-bold text-slate-800">{m.name} ({m.position || '-'})</span>
+                      <span className="text-rose-600 font-bold">{m.originalStatus || m.type}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-xs text-amber-900 leading-relaxed">
+                  💡 <strong>안내:</strong> [연간 복무 관리] 탭의 [증빙서류 누락목록]에서 확인하여 서류 수령 후 제출 체크를 진행하실 수 있습니다.
+                </div>
+              </div>,
+              'left',
+              '업로드 완료 및 서류 확인'
+            );
+          }
+        }
+      }
 
       setDailyPreviewData([]);
       setSyncMessage('');

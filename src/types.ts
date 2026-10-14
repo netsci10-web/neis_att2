@@ -57,3 +57,18 @@ export interface GlobalConfirmState {
 }
 
 export type ViewMode = 'calendar' | 'list' | 'organization' | 'management' | 'vacation' | 'upload' | 'settings';
+
+export interface NotificationSettings {
+  enabled: boolean;
+  soundEnabled: boolean;
+  browserNotification: boolean;
+  workTypeAlerts: {
+    enabled: boolean;
+    types: Record<string, boolean>;
+  };
+  missingDocumentAlert: {
+    enabled: boolean;
+    alertOnUpload: boolean;
+    alertOnCreate: boolean;
+  };
+}

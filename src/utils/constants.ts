@@ -101,3 +101,61 @@ export const normalizeType = (status?: string): string => {
   if (s.includes('정상')) return '정상근무';
   return '기타';
 };
+
+export const DEFAULT_NOTIFICATION_SETTINGS = {
+  enabled: true,
+  soundEnabled: true,
+  browserNotification: false,
+  workTypeAlerts: {
+    enabled: true,
+    types: {
+      '연가': true,
+      '출장': true,
+      '병가': true,
+      '공가': false,
+      '특별휴가': false,
+      '41조': false,
+      '조퇴': false,
+      '외출': false
+    }
+  },
+  missingDocumentAlert: {
+    enabled: true,
+    alertOnUpload: true,
+    alertOnCreate: true
+  }
+};
+
+export const playNotificationSound = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    // Audio might not be permitted before user gesture
+  }
+};
+
+export const sendBrowserNotification = (title: string, options?: NotificationOptions) => {
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        badge: '/favicon.ico',
+        ...options
+      });
+    } catch (e) {
+      console.error('Browser notification error:', e);
+    }
+  }
+};

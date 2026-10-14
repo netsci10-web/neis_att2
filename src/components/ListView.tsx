@@ -242,7 +242,15 @@ export const ListView: React.FC<ListViewProps> = ({
           <h3 className="text-sm font-bold text-slate-800">
             <span>복무 기록 내역 ({filteredEvents.length}건)</span>
           </h3>
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            <button
+              onClick={() => window.print()}
+              className="px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded text-xs font-semibold hover:bg-slate-50 flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95"
+              title="목록 인쇄"
+            >
+              <i className="fa-solid fa-print text-slate-500"></i>
+              <span>인쇄</span>
+            </button>
             <button
               onClick={generateAiReportFromList}
               disabled={isAiLoading}

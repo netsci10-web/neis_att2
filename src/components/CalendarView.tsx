@@ -166,6 +166,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             onToggleAll={onToggleAllStaff}
             onToggleStaff={onToggleStaff}
           />
+
+          <button
+            onClick={() => window.print()}
+            className="px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95"
+            title="달력 인쇄"
+          >
+            <i className="fa-solid fa-print text-slate-500 text-xs"></i>
+            <span>인쇄</span>
+          </button>
         </div>
       </div>
 
