@@ -33,6 +33,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [editStaffData, setEditStaffData] = useState({ name: '', position: '' });
   const [deptFilters, setDeptFilters] = useState<Record<string, { name: string; position: string }>>({});
 
+  const [activeTab, setActiveTab] = useState<'notifications' | 'organization'>(() => {
+    try {
+      const savedTab = localStorage.getItem('worksync_settings_tab');
+      if (savedTab === 'organization' || savedTab === 'notifications') {
+        return savedTab;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'notifications';
+  });
+
+  const handleSelectTab = (tab: 'notifications' | 'organization') => {
+    setActiveTab(tab);
+    try {
+      localStorage.setItem('worksync_settings_tab', tab);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   // Local notification settings state (synced with props or localStorage)
   const [localNotif, setLocalNotif] = useState<NotificationSettings>(() => {
     if (propsNotifSettings) return propsNotifSettings;
@@ -365,10 +386,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-20 animate-in fade-in duration-500">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+      {/* Settings Sub-navigation Tabs */}
+      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row gap-2">
+        <button
+          type="button"
+          onClick={() => handleSelectTab('notifications')}
+          className={`flex-1 py-3 px-5 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all ${
+            activeTab === 'notifications'
+              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <i className="fa-solid fa-bell"></i>
+          <span>복무 및 증빙서류 알림 설정</span>
+          <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ml-1 ${
+            activeTab === 'notifications'
+              ? activeNotif.enabled ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-200'
+              : activeNotif.enabled ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
+          }`}>
+            {activeNotif.enabled ? '알림 작동 중' : '알림 꺼짐'}
+          </span>
+        </button>
 
-      {/* Notification Settings Section */}
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => handleSelectTab('organization')}
+          className={`flex-1 py-3 px-5 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all ${
+            activeTab === 'organization'
+              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <i className="fa-solid fa-users-gear"></i>
+          <span>조직 및 인원 설정</span>
+          <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ml-1 ${
+            activeTab === 'organization'
+              ? 'bg-blue-500 text-white'
+              : 'bg-slate-100 text-slate-600 border border-slate-200'
+          }`}>
+            {staff.length}명 ({departments.length}개 부서)
+          </span>
+        </button>
+      </div>
+
+      {/* Tab 1: Notification Settings Section */}
+      {activeTab === 'notifications' && (
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden animate-in fade-in duration-300">
         {/* Section Header */}
         <div className="p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 gap-4">
           <div className="flex items-center gap-3.5">
@@ -754,9 +818,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       </div>
+    )}
 
-      {/* Staff & Department Organization */}
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+      {/* Tab 2: Staff & Department Organization */}
+      {activeTab === 'organization' && (
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden animate-in fade-in duration-300">
         <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/30 gap-4">
           <h3 className="text-2xl font-bold text-slate-800">조직 및 인원 설정</h3>
           <div className="flex gap-2 items-center flex-wrap">
@@ -986,6 +1052,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           })}
         </div>
       </div>
+    )}
     </div>
   );
 };
