@@ -158,7 +158,8 @@ export const UploadView: React.FC<UploadViewProps> = ({
           const tripPurposeIdx = headers.findIndex(h => h.includes('출장목적') || h.includes('목적'));
           const tripPeriodIdx = headers.findIndex(h => h.includes('출장기간') || h.includes('기간'));
           const tripDurationIdx = headers.findIndex(h => h.includes('일수'));
-          const deptIdx = headers.findIndex(h => h.includes('신청당시부서') || h.includes('부서'));
+          const deptIdx = headers.findIndex(h => ((h === '부서' || h === '소속부서' || h === '소속' || h.includes('부서')) && !h.includes('신청')));
+          const appliedDeptIdx = headers.findIndex(h => h.includes('신청당시부서') || h.includes('신청시부서') || h.includes('신청부서') || (h.includes('신청') && (h.includes('부서') || h.includes('소속'))));
 
           lines.slice(1).forEach(line => {
             const cur = parseCSVLine(line);
@@ -172,6 +173,15 @@ export const UploadView: React.FC<UploadViewProps> = ({
             const isNotDeleted = delStatus === '' || delStatus.includes('미삭제') || !delStatus.includes('삭제');
 
             if (isCompleted && isNotDeleted) {
+              // '부서'와 '신청당시 부서'가 같은 경우만 자료로 넘어가도록 필터링
+              if (deptIdx !== -1 && appliedDeptIdx !== -1) {
+                const currentDept = (cur[deptIdx] || '').replace(/\s+/g, '').trim();
+                const appliedDept = (cur[appliedDeptIdx] || '').replace(/\s+/g, '').trim();
+                if (currentDept !== appliedDept) {
+                  return; // '부서'와 '신청당시 부서'가 다른 경우 제외
+                }
+              }
+
               const applicantRaw = applicantIdx !== -1 ? cur[applicantIdx] : '';
               const membersRaw = membersIdx !== -1 ? cur[membersIdx] : '';
 
@@ -198,7 +208,7 @@ export const UploadView: React.FC<UploadViewProps> = ({
               const tripPurpose = tripPurposeIdx !== -1 ? cur[tripPurposeIdx] : '';
               const tripPeriod = tripPeriodIdx !== -1 ? cur[tripPeriodIdx] : '';
               const tripDuration = tripDurationIdx !== -1 ? cur[tripDurationIdx] : '';
-              const deptRaw = (deptIdx !== -1 && cur[deptIdx]) ? cur[deptIdx].trim() : '';
+              const deptRaw = (deptIdx !== -1 && cur[deptIdx]) ? cur[deptIdx].trim() : ((appliedDeptIdx !== -1 && cur[appliedDeptIdx]) ? cur[appliedDeptIdx].trim() : '');
 
               const pos = existingStaff ? existingStaff.position : '교사';
               const targetDept = existingStaff ? existingStaff.department : ((deptRaw && deptRaw !== '-') ? deptRaw : (departments[0] || '-'));
@@ -555,7 +565,7 @@ export const UploadView: React.FC<UploadViewProps> = ({
             {uploadSubTab === 'period' ? (
               <p><i className="fa-solid fa-circle-info mr-1 text-blue-500"></i>나이스 &gt; 교감 &gt; 근무상황관리 &gt; 근무상황관리 (기간 - 결재상태 완결 - 조회 - 엑셀내려받기: 근무상황목록.CSV)</p>
             ) : (
-              <p><i className="fa-solid fa-circle-info mr-1 text-blue-500"></i>나이스 &gt; 복무 &gt; 출장 &gt; 출장상황조회 또는 근무상황관리 (결재상태 완결 - 엑셀내려받기: 출장목록.CSV)</p>
+              <p><i className="fa-solid fa-circle-info mr-1 text-blue-500"></i>나이스 &gt; 복무 &gt; 출장 &gt; 출장상황조회 또는 근무상황관리 (결재상태 완결, '부서'와 '신청당시 부서' 일치 항목만 반영: 출장목록.CSV)</p>
             )}
           </div>
 

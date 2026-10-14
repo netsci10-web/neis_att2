@@ -1,12 +1,19 @@
 import React from 'react';
-import { WorkEvent, ViewMode } from '../types';
+import { WorkEvent, ViewMode, Staff } from '../types';
 import { CALENDAR_COLORS, getTypeWeight } from '../utils/constants';
 import { formatDate } from '../utils/dateUtils';
+import { WorkerFilterDropdown } from './WorkerFilterDropdown';
 
 interface CalendarViewProps {
   currentMonth: Date;
   setCurrentMonth: (date: Date) => void;
   events: WorkEvent[];
+  staff: Staff[];
+  isAllStaffSelected: boolean;
+  selectedStaffNames: string[];
+  onToggleAllStaff: () => void;
+  onToggleStaff: (name: string) => void;
+  onOpenCreateModal: () => void;
   onSelectEvent: (event: WorkEvent) => void;
   onSelectDate: (dateStr: string) => void;
   setViewMode: (mode: ViewMode) => void;
@@ -18,6 +25,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   currentMonth,
   setCurrentMonth,
   events,
+  staff,
+  isAllStaffSelected,
+  selectedStaffNames,
+  onToggleAllStaff,
+  onToggleStaff,
+  onOpenCreateModal,
   onSelectEvent,
   onSelectDate,
   setViewMode,
@@ -31,6 +44,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
 
+  // Filter events based on selected staff
+  const displayedEvents = isAllStaffSelected
+    ? events
+    : events.filter(e => selectedStaffNames.includes(e.name));
+
   // Empty slots for start of month
   for (let i = 0; i < firstDay(year, month); i++) {
     days.push(
@@ -41,7 +59,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // Days of month
   for (let d = 1; d <= daysInMonth(year, month); d++) {
     const dateStr = formatDate(new Date(year, month, d));
-    const dayEvents = events.filter(e => formatDate(e.start) <= dateStr && formatDate(e.end) >= dateStr);
+    const dayEvents = displayedEvents.filter(e => formatDate(e.start) <= dateStr && formatDate(e.end) >= dateStr);
     
     const sorted = [...dayEvents].sort((a, b) => {
       const wA = getTypeWeight(a.type);
@@ -99,33 +117,79 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   return (
     <div className="bg-white rounded-lg shadow-2xs border border-slate-200 overflow-hidden">
       {/* Calendar Header */}
-      <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-200 bg-white">
+      <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white">
         <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
           <span>{year}년</span> <span>{month + 1}월</span>
         </h2>
-        <div className="flex gap-2">
+        
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
+              className="p-1.5 w-8 h-8 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-600 flex items-center justify-center transition-colors"
+              title="이전 달"
+            >
+              <i className="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <button
+              onClick={() => setCurrentMonth(new Date())}
+              className="px-3 py-1.5 border border-slate-200 rounded-md font-bold hover:bg-slate-50 text-xs text-slate-700 transition-colors"
+            >
+              <span>오늘</span>
+            </button>
+            <button
+              onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
+              className="p-1.5 w-8 h-8 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-600 flex items-center justify-center transition-colors"
+              title="다음 달"
+            >
+              <i className="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+
+          <div className="h-5 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+
+          {/* 신청 아이콘 & 근무자 선택 */}
           <button
-            onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
-            className="p-1.5 w-8 h-8 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-600 flex items-center justify-center transition-colors"
-            title="이전 달"
+            onClick={onOpenCreateModal}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95"
+            title="근무 신청"
           >
-            <i className="fa-solid fa-chevron-left text-xs"></i>
+            <i className="fa-solid fa-plus text-[10px]"></i>
+            <span>신청</span>
           </button>
-          <button
-            onClick={() => setCurrentMonth(new Date())}
-            className="px-3 py-1.5 border border-slate-200 rounded-md font-bold hover:bg-slate-50 text-xs text-slate-700 transition-colors"
-          >
-            <span>오늘</span>
-          </button>
-          <button
-            onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
-            className="p-1.5 w-8 h-8 border border-slate-200 rounded-md hover:bg-slate-50 text-slate-600 flex items-center justify-center transition-colors"
-            title="다음 달"
-          >
-            <i className="fa-solid fa-chevron-right text-xs"></i>
-          </button>
+
+          <WorkerFilterDropdown
+            staff={staff}
+            events={events}
+            isAllSelected={isAllStaffSelected}
+            selectedNames={selectedStaffNames}
+            onToggleAll={onToggleAllStaff}
+            onToggleStaff={onToggleStaff}
+          />
         </div>
       </div>
+
+      {/* Active Filter Notification Bar */}
+      {!isAllStaffSelected && (
+        <div className="bg-blue-50/70 border-b border-blue-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-blue-900">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold flex items-center gap-1.5 text-blue-700">
+              <i className="fa-solid fa-filter text-blue-600"></i>
+              선택된 근무자 표시 중:
+            </span>
+            <span className="font-semibold bg-white border border-blue-200 px-2 py-0.5 rounded text-blue-900">
+              {selectedStaffNames.join(', ')} ({selectedStaffNames.length}명)
+            </span>
+          </div>
+          <button
+            onClick={onToggleAllStaff}
+            className="text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <i className="fa-solid fa-rotate-left text-[10px]"></i>
+            전체 근무자 보기
+          </button>
+        </div>
+      )}
 
       {/* Legend & Day Headers */}
       <div className="bg-white border-b border-slate-200">
@@ -153,3 +217,4 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     </div>
   );
 };
+

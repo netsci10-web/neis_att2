@@ -12,6 +12,7 @@ import { UploadView } from './components/UploadView';
 import { SettingsView } from './components/SettingsView';
 import { EventModal } from './components/EventModal';
 import { AlertConfirmModal } from './components/AlertConfirmModal';
+import { WorkerFilterDropdown } from './components/WorkerFilterDropdown';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -111,6 +112,38 @@ export default function App() {
   const [orgSelectedDate, setOrgSelectedDate] = useState<string>(formatDate(new Date()));
   const [orgFilterStatus, setOrgFilterStatus] = useState<string>('전체');
   const [orgSelectedDepts, setOrgSelectedDepts] = useState<string[]>(departments);
+
+  // Calendar worker filter state
+  const [isAllStaffSelected, setIsAllStaffSelected] = useState<boolean>(true);
+  const [selectedStaffNames, setSelectedStaffNames] = useState<string[]>([]);
+
+  const handleToggleAllStaff = useCallback(() => {
+    setIsAllStaffSelected(true);
+    setSelectedStaffNames([]);
+  }, []);
+
+  const handleToggleStaff = useCallback((name: string) => {
+    setIsAllStaffSelected(prevAll => {
+      if (prevAll) {
+        // When clicking a staff while 'All' is active: uncheck 'All' and select only this staff
+        setSelectedStaffNames([name]);
+        return false;
+      }
+      // When already in specific staff mode: toggle this staff
+      setSelectedStaffNames(prevList => {
+        const next = prevList.includes(name)
+          ? prevList.filter(n => n !== name)
+          : [...prevList, name];
+        // If unchecking the last staff member, revert to 'All'
+        if (next.length === 0) {
+          setIsAllStaffSelected(true);
+          return [];
+        }
+        return next;
+      });
+      return false;
+    });
+  }, []);
 
   // Global modals
   const [globalAlert, setGlobalAlert] = useState<GlobalAlertState>({
@@ -433,7 +466,17 @@ export default function App() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {viewMode === 'calendar' && (
+                <WorkerFilterDropdown
+                  staff={staff}
+                  events={events}
+                  isAllSelected={isAllStaffSelected}
+                  selectedNames={selectedStaffNames}
+                  onToggleAll={handleToggleAllStaff}
+                  onToggleStaff={handleToggleStaff}
+                />
+              )}
               <button
                 onClick={handleOpenCreateModal}
                 className="hidden sm:flex bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-md text-xs font-bold shadow-xs transition-all active:scale-95 items-center gap-1.5"
@@ -495,6 +538,12 @@ export default function App() {
                   currentMonth={currentMonth}
                   setCurrentMonth={setCurrentMonth}
                   events={events}
+                  staff={staff}
+                  isAllStaffSelected={isAllStaffSelected}
+                  selectedStaffNames={selectedStaffNames}
+                  onToggleAllStaff={handleToggleAllStaff}
+                  onToggleStaff={handleToggleStaff}
+                  onOpenCreateModal={handleOpenCreateModal}
                   onSelectEvent={handleSelectEvent}
                   onSelectDate={(dateStr) => {
                     setNewEvent(prev => ({ ...prev, date: dateStr }));
