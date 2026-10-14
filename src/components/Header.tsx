@@ -96,13 +96,15 @@ export const Header: React.FC<HeaderProps> = ({ viewMode, setViewMode, onOpenCre
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenCreateModal}
-            className="bg-blue-600 text-white px-3 py-1.5 rounded-md font-bold text-xs flex items-center gap-1"
-          >
-            <i className="fa-solid fa-plus text-[10px]"></i>
-            <span>신청</span>
-          </button>
+          {!['settings', 'organization', 'vacation', 'upload', 'management'].includes(viewMode) && (
+            <button
+              onClick={onOpenCreateModal}
+              className="bg-blue-600 text-white px-3 py-1.5 rounded-md font-bold text-xs flex items-center gap-1"
+            >
+              <i className="fa-solid fa-plus text-[10px]"></i>
+              <span>신청</span>
+            </button>
+          )}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 text-slate-300 hover:text-white"

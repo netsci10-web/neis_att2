@@ -555,21 +555,25 @@ export default function App() {
                   onToggleStaff={handleToggleStaff}
                 />
               )}
-              <button
-                onClick={handleOpenCreateModal}
-                className="hidden sm:flex bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-md text-xs font-bold shadow-xs transition-all active:scale-95 items-center gap-1.5"
-              >
-                <i className="fa-solid fa-plus text-[10px]"></i>
-                <span>신청</span>
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="hidden sm:flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs transition-all active:scale-95 items-center gap-1.5"
-                title="현재 화면 인쇄"
-              >
-                <i className="fa-solid fa-print text-slate-500 text-xs"></i>
-                <span>인쇄</span>
-              </button>
+              {!['settings', 'organization', 'vacation', 'upload', 'management'].includes(viewMode) && (
+                <>
+                  <button
+                    onClick={handleOpenCreateModal}
+                    className="hidden sm:flex bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-md text-xs font-bold shadow-xs transition-all active:scale-95 items-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-plus text-[10px]"></i>
+                    <span>신청</span>
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="hidden sm:flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs transition-all active:scale-95 items-center gap-1.5"
+                    title="현재 화면 인쇄"
+                  >
+                    <i className="fa-solid fa-print text-slate-500 text-xs"></i>
+                    <span>인쇄</span>
+                  </button>
+                </>
+              )}
               <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
                 <div className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
                   나

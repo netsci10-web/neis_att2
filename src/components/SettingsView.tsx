@@ -27,7 +27,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   notificationSettings: propsNotifSettings,
   setNotificationSettings: propsSetNotifSettings
 }) => {
-  const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key') || '');
   const [newDept, setNewDept] = useState('');
   const [newStaff, setNewStaff] = useState({ name: '', position: '', department: departments[0] || '' });
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
@@ -245,10 +244,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleSaveApiKey = () => {
-    localStorage.setItem('gemini_api_key', geminiKey.trim());
-    showAlert('Gemini API 키가 성공적으로 저장되었습니다.');
-  };
 
   const handleAddDept = () => {
     const trimmed = newDept.trim();
@@ -371,39 +366,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
-      {/* Gemini API Key Box */}
-      <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-200">
-        <div className="flex justify-between items-center mb-6">
-          <h4 className="text-lg font-bold text-indigo-700 flex items-center gap-2">
-            <i className="fa-solid fa-key text-xl"></i>
-            <span>Gemini AI API 설정</span>
-          </h4>
-          <button
-            onClick={() => showAlert(
-              `✨ Gemini API 가이드\n\n1. Google AI Studio 접속 (ai.studio)\n2. 'Get API key' 클릭\n3. 생성된 키를 여기에 입력하면 맞춤 API 키가 우선 사용됩니다.\n(입력하지 않아도 서버 기본 키가 사용됩니다.)`
-            )}
-            className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-custom flex items-center gap-1.5"
-          >
-            <i className="fa-solid fa-circle-info"></i>
-            <span>가이드 보기</span>
-          </button>
-        </div>
-        <div className="flex gap-3">
-          <input
-            type="password"
-            value={geminiKey}
-            onChange={e => setGeminiKey(e.target.value)}
-            placeholder="커스텀 Gemini API Key (선택사항)"
-            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
-          />
-          <button
-            onClick={handleSaveApiKey}
-            className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-custom shadow-md shadow-indigo-100 text-sm"
-          >
-            <span>저장</span>
-          </button>
-        </div>
-      </div>
 
       {/* Notification Settings Section */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
